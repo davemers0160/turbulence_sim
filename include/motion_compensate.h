@@ -11,20 +11,20 @@
 
 
 
-static void meshgrid(const cv::Range& xgv, const cv::Range& ygv,
-    cv::Mat& X, cv::Mat& Y)
-    //const cv::Mat& xgv, const cv::Mat& ygv,
-    //cv::Mat1i& X, cv::Mat1i& Y)
+void meshgrid(const cv::Range& xgv, const cv::Range& ygv, cv::Mat& X, cv::Mat& Y)
 {
     std::vector<int> t_x, t_y;
-    for (int i = xgv.start; i <= xgv.end; ++i) 
+    for (int i = xgv.start; i <= xgv.end; ++i)
         t_x.push_back(i);
 
-    for (int i = ygv.start; i <= ygv.end; ++i) 
+    for (int i = ygv.start; i <= ygv.end; ++i)
         t_y.push_back(i);
 
-    cv::repeat(xgv.reshape(1, 1), ygv.total(), 1, X);
-    cv::repeat(ygv.reshape(1, 1).t(), 1, xgv.total(), Y);
+    cv::Mat x(t_x);
+    cv::Mat y(t_y);
+
+    cv::repeat(x.reshape(1, 1), y.total(), 1, X);
+    cv::repeat(y.reshape(1, 1).t(), 1, x.total(), Y);
 }
 
 
@@ -66,21 +66,48 @@ g = imresize(g, pel);
 
 cv::Mat motion_compensate(cv::Mat &src, cv::Mat MVx, cv::Mat MVy, double pel)
 {
-    cv::Mat tmp;
-    cv::resize(src, tmp, Size(), 1.0/pel, 1.0/pel, cv::INTER_LINEAR);
+    cv::Mat img;
+    cv::resize(src, img, Size(), 1.0/pel, 1.0/pel, cv::INTER_LINEAR);
 
-    uint32_t img_h = tmp.rows;
-    uint32_t img_w = tmp.cols;
+    uint32_t img_h = img.rows;
+    uint32_t img_w = img.cols;
 
+    // BlockSize  = floor(size(img,1)/size(MVx,1));
     int32_t block_size = std::floor(img_h / (double)MVx.rows);
 
+    // M          = floor(m/block_size)*BlockSize;
+    // N          = floor(n/block_size)*BlockSize;
     int32_t M = std::floor(img_h / (double)block_size) * block_size;
     int32_t N = std::floor(img_w / (double)block_size) * block_size;
 
-    cv::Mat f(tmp, cv::Rect(0, 0, N, M));
+    // f          = img(1:M, 1:N, 1:C);
+    cv::Mat f(img, cv::Rect(0, 0, N, M));
 
+    // g          = zeros(M, N, C);
     cv::Mat g = cv::Mat::zeros(M, N, src.type());
 
+    // MVxmap = imresize(MVx, BlockSize);
+    // MVymap = imresize(MVy, BlockSize);
+    // Dx = round(MVxmap*(1/pel));
+    // Dy = round(MVymap*(1/pel));
+    
+    // [xgrid ygrid] = meshgrid(1:N, 1:M);
+    cv::Mat x_grid, y_grid;
+    meshgrid(cv::Range(0, N-1), cv::Range(0, M-1), x_grid, y_grid);
+    
+    // X = min(max(xgrid+Dx, 1), N);
+    // Y = min(max(ygrid+Dy, 1), N);
+    
+    // idx = (X(:)-1)*M + Y(:);
+    
+    // for coloridx = 1:C
+        // fc = f(:,:,coloridx);
+        // g(:,:,coloridx) = reshape(fc(idx), M, N);
+    // end
+    
+    // g = imresize(g, pel);
+    
+    
 
 
 }   // end of motion_compensate
